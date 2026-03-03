@@ -1,0 +1,60 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id        Int     @id @default(autoincrement())
+  name      String
+  mobile    String  @unique
+  role      String  @default("WORKER") // ADMIN, WORKER
+  pin       String  // 4-digit PIN for login
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  workLogs  WorkLog[]
+}
+
+model Ward {
+  id        Int     @id @default(autoincrement())
+  ward_no   Int     @unique
+  boundary  String  // GeoJSON or WKT format
+  qr_data   String  @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model WorkLog {
+  id          Int     @id @default(autoincrement())
+  worker_id   Int
+  worker      User    @relation(fields: [worker_id], references: [id])
+  module      String  // DOOR_TO_DOOR, SWEEPING, DRAINAGE, DEPOT
+  trail       String? // GeoJSON or WKT format
+  photo_url   String?
+  status      String  @default("PENDING") // PENDING, COMPLETED, AUTO_COMPLETED
+  timestamp   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  tripCount   Int     @default(0) // For DEPOT module
+}
+
+model Config {
+  id              Int     @id @default(1)
+  photo_mandatory Boolean @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model GeofenceLog {
+  id          Int     @id @default(autoincrement())
+  worker_id   Int
+  location    String  // GeoJSON or WKT format
+  timestamp   DateTime @default(now())
+  dwellTime   Int     // in seconds
+}

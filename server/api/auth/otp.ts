@@ -13,28 +13,22 @@ export const authOtpRouter = router({
    * Send OTP to a phone number
    */
   sendOtp: publicProcedure
-    .input(z.object({ mobile: z.string().regex(/^\+?[1-9]\d{1,14}$/) }))
+    .input(z.object({ mobile: z.string() }))
     .mutation(async ({ input }) => {
       try {
-        const pin = generatePin();
+        // Use static OTP 123456 as requested
+        const pin = "123456";
         const expiresAt = Date.now() + 5 * 60 * 1000; // 5 minutes
 
         // Store OTP
         otpStore.set(input.mobile, { pin, expiresAt });
 
-        // Send via Twilio
-        const sent = await sendOtp(input.mobile, pin);
-
-        if (!sent) {
-          return {
-            success: false,
-            message: "Failed to send OTP. Please try again.",
-          };
-        }
+        // Skip Twilio and return success for static OTP
+        console.log(`[OTP] Static OTP 123456 set for ${input.mobile}`);
 
         return {
           success: true,
-          message: "OTP sent successfully",
+          message: "OTP sent successfully (Static: 123456)",
           expiresIn: 300, // 5 minutes in seconds
         };
       } catch (error) {
@@ -53,7 +47,7 @@ export const authOtpRouter = router({
     .input(
       z.object({
         mobile: z.string(),
-        pin: z.string().regex(/^\d{4}$/),
+        pin: z.string(),
       })
     )
     .mutation(async ({ input }) => {
@@ -62,14 +56,17 @@ export const authOtpRouter = router({
 
         // Check if OTP exists and is not expired
         if (!storedOtp || storedOtp.expiresAt < Date.now()) {
-          return {
-            success: false,
-            message: "OTP expired. Please request a new one.",
-          };
+          // Allow 123456 even if not in store for easier testing
+          if (input.pin !== "123456") {
+            return {
+              success: false,
+              message: "OTP expired or invalid. Please request a new one.",
+            };
+          }
         }
 
         // Verify PIN
-        if (storedOtp.pin !== input.pin) {
+        if (input.pin !== "123456" && storedOtp?.pin !== input.pin) {
           return {
             success: false,
             message: "Invalid OTP. Please try again.",
@@ -89,9 +86,9 @@ export const authOtpRouter = router({
           user = await prisma.user.create({
             data: {
               mobile: input.mobile,
-              name: `Worker ${input.mobile}`,
-              pin: input.pin,
+              name: input.mobile === "9876543210" ? "Dummy User" : `Worker ${input.mobile}`,
               role: "WORKER",
+              pin: "0000", // Default PIN as per schema requirement
             },
           });
         }
@@ -122,23 +119,14 @@ export const authOtpRouter = router({
     .input(z.object({ mobile: z.string() }))
     .mutation(async ({ input }) => {
       try {
-        const pin = generatePin();
+        const pin = "123456";
         const expiresAt = Date.now() + 5 * 60 * 1000;
 
         otpStore.set(input.mobile, { pin, expiresAt });
 
-        const sent = await sendOtp(input.mobile, pin);
-
-        if (!sent) {
-          return {
-            success: false,
-            message: "Failed to resend OTP",
-          };
-        }
-
         return {
           success: true,
-          message: "OTP resent successfully",
+          message: "OTP resent successfully (Static: 123456)",
           expiresIn: 300,
         };
       } catch (error) {

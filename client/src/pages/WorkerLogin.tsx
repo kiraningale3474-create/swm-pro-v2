@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Phone, Lock, ArrowRight } from "lucide-react";
+import { trpc } from "../lib/trpc";
 
 export default function WorkerLogin() {
   const [step, setStep] = useState<"mobile" | "otp">("mobile");
@@ -9,24 +10,24 @@ export default function WorkerLogin() {
   const [error, setError] = useState("");
   const [expiresIn, setExpiresIn] = useState(0);
 
+  const sendOtpMutation = trpc.otp.sendOtp.useMutation();
+  const verifyOtpMutation = trpc.otp.verifyOtp.useMutation();
+
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError("");
 
     try {
-      // TODO: Call API to send OTP
-      // const response = await trpc.auth.otp.sendOtp.mutate({ mobile });
-      // if (response.success) {
-      //   setStep("otp");
-      //   setExpiresIn(response.expiresIn);
-      // } else {
-      //   setError(response.message);
-      // }
-      setStep("otp");
-      setExpiresIn(300);
-    } catch (err) {
-      setError("Failed to send OTP. Please try again.");
+      const response = await sendOtpMutation.mutateAsync({ mobile });
+      if (response.success) {
+        setStep("otp");
+        setExpiresIn(response.expiresIn || 300);
+      } else {
+        setError(response.message || "Failed to send OTP");
+      }
+    } catch (err: any) {
+      setError(err.message || "Failed to send OTP. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -38,16 +39,15 @@ export default function WorkerLogin() {
     setError("");
 
     try {
-      // TODO: Call API to verify OTP
-      // const response = await trpc.auth.otp.verifyOtp.mutate({ mobile, pin: otp });
-      // if (response.success) {
-      //   // Redirect to worker dashboard
-      //   window.location.href = "/worker/dashboard";
-      // } else {
-      //   setError(response.message);
-      // }
-    } catch (err) {
-      setError("Failed to verify OTP. Please try again.");
+      const response = await verifyOtpMutation.mutateAsync({ mobile, pin: otp });
+      if (response.success) {
+        // Redirect to worker dashboard
+        window.location.href = "/worker/dashboard";
+      } else {
+        setError(response.message || "Invalid OTP");
+      }
+    } catch (err: any) {
+      setError(err.message || "Failed to verify OTP. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -112,9 +112,9 @@ export default function WorkerLogin() {
                   <input
                     type="text"
                     value={otp}
-                    onChange={(e) => setOtp(e.target.value.slice(0, 4))}
-                    placeholder="0000"
-                    maxLength={4}
+                    onChange={(e) => setOtp(e.target.value.slice(0, 6))}
+                    placeholder="000000"
+                    maxLength={6}
                     className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-200 text-center text-2xl tracking-widest"
                     required
                   />
@@ -133,7 +133,7 @@ export default function WorkerLogin() {
 
               <button
                 type="submit"
-                disabled={loading || otp.length !== 4}
+                disabled={loading || otp.length < 4}
                 className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {loading ? "Verifying..." : "Verify & Login"}
